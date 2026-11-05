@@ -52,8 +52,9 @@ export class AtlasMap {
       for(const feature of geography.features||[]){
         if(feature.properties?.kind!==kind)continue;
         const d=geometryPath(feature.geometry);if(!d)continue;
-        const path=el('path',{d,class:`geography-path geography-${kind}`,'vector-effect':'non-scaling-stroke','fill-rule':'evenodd'});
-        if(feature.properties.name)path.append(el('title',{},feature.properties.name+' · 现代地理参照'));
+        const historic=kind==='wall'&&feature.properties.wallClass==='historic-reference';
+        const path=el('path',{d,class:`geography-path geography-${kind}${historic?' geography-wall-historic':''}`,'vector-effect':'non-scaling-stroke','fill-rule':'evenodd'});
+        if(feature.properties.name)path.append(el('title',{},feature.properties.name+' · '+(feature.properties.wallNote||'现代地理参照')));
         group.append(path);
       }
       this.svg.append(group);

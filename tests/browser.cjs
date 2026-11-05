@@ -20,7 +20,30 @@ const fs=require('node:fs');
     assert.ok((await inspect()).sources.includes('atlas-modern-reference'),'actual local GIS source must be installed');
     assert.equal((await inspect()).pitch,48);
     assert.equal(await page.locator('#year-value').textContent(),'1757');
+    const wallEvidence=await page.evaluate(()=>{
+      const map=document.getElementById('map').atlasMap.map;
+      const walls=map.getStyle().sources['atlas-modern-reference'].data.features.filter(f=>f.properties.kind==='wall');
+      return {walls:walls.map(f=>({id:f.properties.osmId,kind:f.properties.wallClass})),
+        historic:map.getLayer('atlas-wall-historic')?.id,
+        dash:map.getLayer('atlas-wall-historic')?map.getPaintProperty('atlas-wall-historic','line-dasharray'):null};
+    });
+    for(const id of [89637542,223953633,91997603,30685577,437649421])assert.ok(wallEvidence.walls.some(w=>w.id===id&&w.kind==='physical'));
+    assert.equal(wallEvidence.historic,'atlas-wall-historic');assert.ok(wallEvidence.dash?.length);
+    results.push('formerly missing wall geometry reaches actual GIS source and historic-only records use dashed layer');
     await page.screenshot({path:path.join(output,'desktop-overview.png')});results.push('desktop map loads');
+    await page.goto(base+'?year=1644',{waitUntil:'networkidle'});
+    await page.locator('body[data-ready="true"]').waitFor();
+    await page.getByRole('button',{name:'回南京城',exact:true}).click();
+    assert.ok((await inspect()).zoom>11,'city overview must frame the wall geometry, not a remote fixed camera');
+    await page.waitForFunction(()=>document.getElementById('map').atlasMap.map.queryRenderedFeatures({layers:['atlas-wall']}).length>=20);
+    const wallFrame=await page.evaluate(()=>{
+      const map=document.getElementById('map').atlasMap.map;
+      const walls=map.getStyle().sources['atlas-modern-reference'].data.features.filter(f=>f.properties.kind==='wall'&&f.properties.wallClass==='physical');
+      const rect=map.getCanvas().getBoundingClientRect();
+      return walls.flatMap(f=>f.geometry.coordinates).every(c=>{const p=map.project(c);return p.x>=0&&p.x<=rect.width&&p.y>=0&&p.y<=rect.height;});
+    });
+    assert.equal(wallFrame,true);await page.screenshot({path:path.join(output,'desktop-walls.png')});
+    results.push('city camera frames and actually renders the expanded wall geometry');
     for(const [name,nodes,segments]of [['弘光之战',4,3],['郑成功北伐',5,3],['康熙初次南巡',3,1],['乾隆初巡 · 龙潭御路',4,2],['乾隆二巡 · 栖霞御路',6,4]]){
       await page.getByRole('button',{name:'全部',exact:true}).click();
       await page.getByRole('button',{name,exact:true}).click();
@@ -119,6 +142,7 @@ const fs=require('node:fs');
     assert.notDeepEqual((await inspect()).center,zoomed);results.push('map zoom and drag');
     await page.getByRole('button',{name:'图层',exact:true}).click();
     await page.getByLabel('城墙参照').uncheck();assert.equal((await inspect()).layers.find(l=>l.id==='atlas-wall').visibility,'none');
+    assert.equal((await inspect()).layers.find(l=>l.id==='atlas-wall-historic').visibility,'none');
     await page.getByLabel('山川水系').uncheck();assert.equal((await inspect()).layers.find(l=>l.id==='atlas-river').visibility,'none');
     await page.getByLabel('山川水系').check();
     await page.getByLabel('历史路线').uncheck();await page.waitForFunction(()=>document.getElementById('map').atlasMap.inspect().overlayLayerIds?.length===0);assert.equal(await page.locator('.map-route-number').count(),0);
@@ -153,7 +177,12 @@ const fs=require('node:fs');
       assert.ok(page.url().includes('overnight-'+tour.id));
     }
     results.push('all twelve tour sequences independently select and deep-link');
+    await page.setViewportSize({width:900,height:844});
+    assert.equal(await page.locator('.map-legend span').nth(2).isVisible(),true);
     await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('.map-legend span').nth(2).isVisible(),true);
+    assert.equal(await page.locator('.map-legend span').nth(3).isVisible(),true);
+    results.push('physical and historical wall legends stay visible at tablet and phone widths');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.getByRole('button',{name:'打开专题目录',exact:true}).click();
     await page.getByRole('button',{name:'清初战争',exact:true}).click();
@@ -173,6 +202,8 @@ const fs=require('node:fs');
     await fallbackPage.route('**/public/gis/gis-map.mjs',r=>r.abort());await fallbackPage.goto(base,{waitUntil:'networkidle'});await fallbackPage.locator('body[data-ready="true"]').waitFor();
     assert.equal(await fallbackPage.locator('body').getAttribute('data-engine'),'svg');assert.ok(await fallbackPage.locator('.geography-path').count()>100);
     assert.equal(await fallbackPage.locator('#map svg > rect').first().getAttribute('fill'),'#071722');
+    assert.ok(await fallbackPage.locator('.geography-wall').count()>=80);
+    assert.ok(await fallbackPage.locator('.geography-wall-historic').count()>=40);
     await fallbackPage.screenshot({path:path.join(output,'svg-fallback-desktop.png')});
     await fallbackPage.setViewportSize({width:390,height:844});await fallbackPage.waitForTimeout(250);
     await fallbackPage.screenshot({path:path.join(output,'svg-fallback-mobile.png')});

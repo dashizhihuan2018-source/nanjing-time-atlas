@@ -51,8 +51,8 @@ export function featureQuery() {
   way["name"]["leisure"~"^(park|nature_reserve|garden)$"](${CORE_BBOX});
   way["name"]["landuse"="forest"](${CORE_BBOX});
   way["name"]["natural"="wood"](${CORE_BBOX});
-  way["name"]["barrier"~"^(city_wall|wall)$"](${CORE_BBOX});
-  way["name"]["historic"~"^(citywalls|city_wall)$"](${CORE_BBOX});
+  way["barrier"="city_wall"](${CORE_BBOX});
+  way["historic"~"^(citywalls|city_wall)$"](${CORE_BBOX});
   way["name"]["highway"~"^(trunk|primary|secondary)$"](${CORE_BBOX});
 );
 out tags geom;`;
@@ -91,8 +91,9 @@ function samePosition(a, b) {
 }
 
 export function wayToFeature(element) {
-  if (element?.type !== 'way' || !element.tags?.name) return null;
+  if (element?.type !== 'way') return null;
   const kind = classifyTags(element.tags);
+  if (!element.tags?.name && kind !== 'wall') return null;
   const coordinates = coordinatesOf(element.geometry);
   if (!kind || coordinates.length < 2) return null;
   const polygon = (kind === 'water' || kind === 'park')
@@ -102,7 +103,13 @@ export function wayToFeature(element) {
     type: 'Feature',
     properties: {
       kind,
-      name: element.tags.name,
+      name: element.tags.name || '城墙（OSM未命名墙段）',
+      ...(!element.tags.name ? { nameIsFallback: true } : {}),
+      ...(kind === 'wall' ? {
+        wallClass: element.tags.barrier === 'city_wall' && element.tags.ruins !== 'yes'
+          && element.tags.demolished !== 'yes' && element.tags.razed !== 'yes'
+          ? 'physical' : 'historic-reference',
+      } : {}),
       osmType: element.type,
       osmId: element.id,
       source: `https://www.openstreetmap.org/${element.type}/${element.id}`,
@@ -111,6 +118,32 @@ export function wayToFeature(element) {
       ? { type: 'Polygon', coordinates: [coordinates] }
       : { type: 'LineString', coordinates },
   };
+}
+
+// OSM's official map endpoint returns ways and their referenced nodes. Keep
+// separate source ways; never connect a gap or retain contributor account data.
+export function wallElementsFromMaps(responses) {
+  const objects = new Map();
+  for (const response of responses) {
+    if (!Array.isArray(response.elements)) throw new Error('Invalid OSM map response');
+    for (const element of response.elements) {
+      const key = `${element.type}/${element.id}`;
+      const previous = objects.get(key);
+      if (!previous || (element.version ?? 0) > (previous.version ?? 0)) objects.set(key, element);
+    }
+  }
+  return [...objects.values()]
+    .filter(element => element.type === 'way' && classifyTags(element.tags) === 'wall')
+    .sort((a, b) => a.id - b.id)
+    .map(element => ({
+      type: 'way', id: element.id, version: element.version,
+      timestamp: element.timestamp, tags: element.tags,
+      geometry: element.nodes.map(id => {
+        const node = objects.get(`node/${id}`);
+        if (!Number.isFinite(node?.lon) || !Number.isFinite(node?.lat)) throw new Error(`Missing OSM node ${id} for wall ${element.id}`);
+        return { lon: node.lon, lat: node.lat };
+      }),
+    }));
 }
 
 function stitchRings(memberWays) {

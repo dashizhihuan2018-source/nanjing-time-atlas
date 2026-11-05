@@ -1,6 +1,6 @@
 # 南京历史图志：现代地理参照来源与限制
 
-## 交付状态
+## 初始快照（后续城墙增量见下文）
 
 - 最终文件：`public/data/geography.json`
 - 格式：GeoJSON `FeatureCollection`，含顶级 `metadata`、`places`、`features`
@@ -93,3 +93,15 @@ node scripts/fetch-geography.mjs --from-raw \
 ```
 
 最终契约校验结果：4,029 features；22 places；43,255 坐标点；所有 feature 都有 `kind/name/osmType/osmId/source`；JSON 可解析；宽范围合理性检查无越界坐标；测试 6/6 通过。
+
+## V2.0.1 城墙补采（2026-11-05）
+
+旧采集查询和转换器均要求`name`，遗漏无名真城墙。修复后普通`barrier=wall`仍不纳入城墙。Overpass本轮返回406/429/504或超时，改用OSM官方`/api/0.6/map.json?bbox=…`九个小范围请求；各请求URL与采集完成UTC时间保留于`research/nanjing-walls-osm.json`的`sources`。该文件只含82个城墙way及原始节点坐标，不含贡献者账号、uid或无关城区数据；ODbL 1.0，© OpenStreetMap contributors。
+
+- 墙体标记：35个`barrier=city_wall`对象，以金色实线显示；这不是现场验收。
+- 历史墙址记录：47个仅`historic=citywalls`等对象，以金色虚线显示，存续与历史分期未核；不把它们当作现存段或已完成考证的清代墙线。
+- 东段way/89637542与223953633、南段way/91997603、西北way/30685577、西段way/437649421等原无名对象均已纳入。每对象保留OSM链接、版本、修改时间和原始独立几何；不跨缺口补连。含双侧墙线和瓮城，不相加冒称总长或覆盖率。
+- 更新后：4,100 features、44,241坐标点、22个地点；water/river/park/road及places与V2.0.0逐项深比较不变。文件4,728,393 bytes，SHA256 `9a912132b276d08d7b3711d1c89976d5619cfdddcc0d00682a8acf75a716b887`。
+- 重放：`node scripts/update-walls.mjs`；从已采集官方map响应重建来源包：`node scripts/update-walls.mjs --from-maps tmp/walls`。来源包固定，重放结果逐字节一致。初始Overpass离线重建后再运行本命令，才能恢复本次增量，不能只重放初始11段快照。
+
+缺失name放行、标签语义分层、官方map节点解析、拒绝缺失节点、缺失墙体快照与真实MapLibre层、镜头全貌均已分别记录RED→GREEN。来源与界面说明不将现代数据冒称完整历史测绘；缺少的水面/区域数据仍是原独立限制。

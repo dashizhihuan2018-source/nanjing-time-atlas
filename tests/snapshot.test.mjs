@@ -16,6 +16,18 @@ test('the shipped geographic snapshot has finite coordinates and object provenan
     assert.match(feature.properties.source,/^https:\/\/www\.openstreetmap\.org\/(way|relation)\/\d+$/);
   }
 });
+test('shipped walls include the formerly unnamed east, south and northwest segments with evidence classes',()=>{
+  const walls=geography.features.filter(f=>f.properties.kind==='wall');
+  for(const id of [89637542,223953633,91997603,30685577,437649421]){
+    const wall=walls.find(f=>f.properties.osmId===id);
+    assert.ok(wall,`missing official OSM wall way/${id}`);
+    assert.equal(wall.properties.wallClass,'physical');
+    assert.equal(wall.properties.nameIsFallback,true);
+  }
+  assert.ok(walls.filter(f=>f.properties.wallClass==='physical').length>=25);
+  assert.ok(walls.filter(f=>f.properties.wallClass==='historic-reference').length>=30);
+  assert.equal(new Set(walls.map(f=>`${f.properties.osmType}/${f.properties.osmId}`)).size,walls.length);
+});
 test('lake geometry is never faked, and the present missing-data limitation is visible',async()=>{
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   for(const id of [2138994,18231223]){

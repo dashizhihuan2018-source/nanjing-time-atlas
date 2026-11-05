@@ -138,6 +138,52 @@ test('generic named enclosure walls are not classified as city walls', async () 
   assert.equal(classifyTags({ name: '历史城墙', historic: 'citywalls' }), 'wall');
 });
 
+test('city-wall queries do not require a name on genuine defensive wall segments', async () => {
+  const { featureQuery } = await import(pathToFileURL(scriptPath));
+  const query = featureQuery();
+  assert.match(query, /way\["barrier"="city_wall"\]/);
+  assert.doesNotMatch(query, /way\["name"\]\["(?:barrier|historic)"/);
+});
+
+test('unnamed city-wall geometry survives without inventing a place name or connecting gaps', async () => {
+  const { wayToFeature } = await import(pathToFileURL(scriptPath));
+  const geometry = [{ lon: 118.8, lat: 32.02 }, { lon: 118.81, lat: 32.03 }];
+  const feature = wayToFeature({ type: 'way', id: 123, tags: { barrier: 'city_wall' }, geometry });
+  assert.ok(feature, 'an absent name must not discard a defensive wall');
+  assert.deepEqual(feature.geometry.coordinates, [[118.8, 32.02], [118.81, 32.03]]);
+  assert.equal(feature.geometry.type, 'LineString');
+  assert.equal(feature.properties.name, '城墙（OSM未命名墙段）');
+  assert.equal(feature.properties.nameIsFallback, true);
+  assert.equal(feature.properties.source, 'https://www.openstreetmap.org/way/123');
+  assert.equal(wayToFeature({ type: 'way', id: 124, tags: { barrier: 'wall' }, geometry }), null);
+  assert.equal(wayToFeature({ type: 'way', id: 125, tags: { highway: 'primary' }, geometry }), null);
+});
+
+test('wall-body tags and historical-only wall records remain distinct evidence classes', async () => {
+  const { wayToFeature } = await import(pathToFileURL(scriptPath));
+  const base = { type: 'way', id: 126, geometry: [{ lon: 118.8, lat: 32.02 }, { lon: 118.81, lat: 32.03 }] };
+  assert.equal(wayToFeature({ ...base, tags: { barrier: 'city_wall' } }).properties.wallClass, 'physical');
+  assert.equal(wayToFeature({ ...base, tags: { historic: 'citywalls' } }).properties.wallClass, 'historic-reference');
+  assert.equal(wayToFeature({ ...base, tags: { barrier: 'city_wall', ruins: 'yes' } }).properties.wallClass, 'historic-reference');
+});
+
+test('official OSM map nodes resolve into independent wall ways and reject missing geometry', async () => {
+  const { wallElementsFromMaps } = await import(pathToFileURL(scriptPath));
+  assert.equal(typeof wallElementsFromMaps, 'function');
+  const elements = [
+    { type: 'node', id: 1, lon: 118.8, lat: 32.02 },
+    { type: 'node', id: 2, lon: 118.81, lat: 32.03 },
+    { type: 'way', id: 126, version: 3, user: 'not-for-publication', tags: { barrier: 'city_wall' }, nodes: [1, 2] },
+    { type: 'way', id: 127, tags: { barrier: 'wall' }, nodes: [1, 2] },
+  ];
+  const result = wallElementsFromMaps([{ elements }, { elements }]);
+  assert.equal(result.length, 1);
+  assert.deepEqual(result[0].geometry, [{ lon: 118.8, lat: 32.02 }, { lon: 118.81, lat: 32.03 }]);
+  assert.equal(result[0].user, undefined);
+  assert.equal(result[0].version, 3);
+  assert.throws(() => wallElementsFromMaps([{ elements: elements.filter(e => e.id !== 2) }]), /Missing OSM node/);
+});
+
 test('an exact-name subway station may be retained as an explicitly modern route reference', async () => {
   const { selectPlaces } = await import(pathToFileURL(scriptPath));
   const places = selectPlaces([{

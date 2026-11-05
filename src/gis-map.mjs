@@ -50,13 +50,16 @@ function localStyle(features){
 }
 function localLayers(){
   const filter=kind=>['==',['get','kind'],kind];
+  const body=['all',filter('wall'),['!=',['get','wallClass'],'historic-reference']];
+  const trace=['all',filter('wall'),['==',['get','wallClass'],'historic-reference']];
   return [
     {id:'atlas-park',type:'fill',source:LOCAL_SOURCE,filter:filter('park'),paint:{'fill-color':'#153c42','fill-opacity':.66}},
     {id:'atlas-water',type:'fill',source:LOCAL_SOURCE,filter:filter('water'),paint:{'fill-color':'#1c6777','fill-opacity':.8}},
     {id:'atlas-river',type:'line',source:LOCAL_SOURCE,filter:filter('river'),paint:{'line-color':'#54bac0','line-opacity':.58,'line-width':['interpolate',['linear'],['zoom'],8,.6,13,2.4]}},
     {id:'atlas-road',type:'line',source:LOCAL_SOURCE,filter:filter('road'),paint:{'line-color':'#9bc9cf','line-opacity':.3,'line-width':['interpolate',['linear'],['zoom'],8,.35,14,1.5]}},
-    {id:'atlas-wall-glow',type:'line',source:LOCAL_SOURCE,filter:filter('wall'),paint:{'line-color':'#c69f69','line-opacity':.16,'line-width':8,'line-blur':5}},
-    {id:'atlas-wall',type:'line',source:LOCAL_SOURCE,filter:filter('wall'),paint:{'line-color':'#d4aa73','line-opacity':.88,'line-width':['interpolate',['linear'],['zoom'],8,1.4,14,3.2]}},
+    {id:'atlas-wall-glow',type:'line',source:LOCAL_SOURCE,filter:body,paint:{'line-color':'#c69f69','line-opacity':.25,'line-width':10,'line-blur':5}},
+    {id:'atlas-wall-historic',type:'line',source:LOCAL_SOURCE,filter:trace,paint:{'line-color':'#c1a783','line-opacity':.65,'line-width':1.6,'line-dasharray':[3,3]}},
+    {id:'atlas-wall',type:'line',source:LOCAL_SOURCE,filter:body,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#e4bd83','line-opacity':.96,'line-width':['interpolate',['linear'],['zoom'],8,1.8,14,4]}},
   ];
 }
 function modeEvent(container,mode,message){
@@ -198,9 +201,19 @@ export class GisMap {
   }
 
   resize(){this.map.resize();}
-  city(){const padding=screenPadding(this.container);this.map.easeTo({center:CITY_CENTER,
-    offset:[(padding.left-padding.right)/2,(padding.top-padding.bottom)/2],
-    zoom:10.75,pitch:this.perspective===false?0:48,bearing:-16,duration:this.motion?1100:0});}
+  city(){
+    const padding=screenPadding(this.container);
+    const coordinates=(this.geography.features||[]).filter(f=>f.properties?.kind==='wall')
+      .flatMap(f=>f.geometry.type==='LineString'?f.geometry.coordinates:f.geometry.type==='MultiLineString'?f.geometry.coordinates.flat():[])
+      .filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
+    if(coordinates.length>1){
+      const bounds=new LngLatBounds();coordinates.forEach(c=>bounds.extend(c));
+      this.map.fitBounds(bounds,{padding,maxZoom:13,pitch:this.perspective===false?0:48,
+        bearing:this.perspective===false?0:-16,duration:this.motion?1100:0});
+    }else this.map.easeTo({center:CITY_CENTER,
+      offset:[(padding.left-padding.right)/2,(padding.top-padding.bottom)/2],
+      zoom:10.75,pitch:this.perspective===false?0:48,bearing:-16,duration:this.motion?1100:0});
+  }
   fitRoute(route){
     const coords=(route?.stops||[]).map(stop=>this.places.find(place=>place.id===stop.place)?.geo)
       .filter(geo=>Number.isFinite(geo?.lon)&&Number.isFinite(geo?.lat));
@@ -229,7 +242,7 @@ export class GisMap {
     if(this.destroyed)return;
     for(const kind of KIND){
       const visible=this.visibility[kind==='river'?'water':kind];
-      for(const id of kind==='wall'?['atlas-wall','atlas-wall-glow']:[`atlas-${kind}`]){
+      for(const id of kind==='wall'?['atlas-wall','atlas-wall-glow','atlas-wall-historic']:[`atlas-${kind}`]){
         if(this.map.getLayer(id))this.map.setLayoutProperty(id,'visibility',visible?'visible':'none');
       }
     }

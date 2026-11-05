@@ -22,7 +22,7 @@ export async function buildPublic(out=path.join(root,'dist/site')){
       await writeFile(dest,html);
     }else await copyFile(path.join(root,name),dest);
   }
-  await writeFile(path.join(out,'release.json'),JSON.stringify({version:'2.0.0',name:'金陵时序',mode:'public',engine:'MapLibre GL JS 6.16.0 + deck.gl 9.4.1',source:'https://github.com/dashizhihuan2018-source/nanjing-time-atlas',paperIncluded:false},null,2)+'\n');
+  await writeFile(path.join(out,'release.json'),JSON.stringify({version:'2.0.1',name:'金陵时序',mode:'public',engine:'MapLibre GL JS 6.16.0 + deck.gl 9.4.1',source:'https://github.com/dashizhihuan2018-source/nanjing-time-atlas',paperIncluded:false},null,2)+'\n');
   await writeFile(path.join(out,'.nojekyll'),'');
   return out;
 }
