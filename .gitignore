@@ -1,0 +1,14 @@
+.DS_Store
+/reference/
+/tmp/
+/node_modules/
+/dist/
+/.firecrawl/
+/evidence/private/
+*.pdf
+*.caj
+*.crdownload
+.env
+.env.*
+!.env.example
+

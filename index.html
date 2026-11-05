@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#243e36">
+  <meta name="atlas-mode" content="local">
+  <meta name="description" content="基于杨金杰学位论文的南京历史空间交互图志。沿时间、战争与南巡，重读山水金陵。">
+  <title>金陵时序 · 清代南京城市图志</title>
+  <link rel="icon" href="./public/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./public/style.css">
+  <script type="module" src="./src/app.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#map">跳至地图</a>
+  <header class="topbar">
+    <button id="menu-toggle" class="icon-button mobile-only" aria-label="打开专题目录" aria-expanded="false">☰</button>
+    <a class="brand" href="./" aria-label="金陵时序首页"><span class="seal" aria-hidden="true">金陵<br>圖志</span><span class="brand-name">金陵时序<span class="brand-sub">NANJING THROUGH TIME</span></span></a>
+    <span class="header-description">清代南京城市空间交互图志<span class="header-divider">/</span><span>1644 — 1784</span></span>
+    <div class="header-actions"><span class="local-label"><i></i>本地研究版</span><button id="about-open" class="plain-button">关于这张地图 <span aria-hidden="true">↗</span></button></div>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar" id="sidebar" aria-label="专题目录">
+      <div class="sidebar-intro"><span class="eyebrow">一城 / 两种观看</span><h1>山水之间<br>重读金陵<span>。</span></h1><p>城墙之外，山水之中。<br>沿战争与南巡，寻找南京的另一重空间。</p></div>
+      <nav class="topic-tabs" aria-label="专题筛选"><button data-topic="all" aria-pressed="true">全部</button><button data-topic="war" aria-pressed="false">清初战争</button><button data-topic="tour" aria-pressed="false">康乾南巡</button></nav>
+      <div class="sidebar-heading"><span>循迹读城</span><span class="small">选择一段历史</span></div>
+      <div id="route-list" class="route-list"></div>
+      <div class="sidebar-foot"><span class="book-icon" aria-hidden="true">▥</span><div>以论文为线索，以地图为阅读方式<small>杨金杰 · 东南大学 · 2022</small></div><button id="method-open" aria-label="查看复原方法">↗</button></div>
+    </aside>
+    <section class="map-workspace" aria-label="历史地图工作区">
+      <div id="map" tabindex="0" role="application" aria-label="南京城互动地图，可拖动和缩放"><div class="map-loading">正在展开金陵舆图…</div></div>
+      <div class="map-topline"><div class="map-heading"><span class="eyebrow" id="map-kicker">江宁府 · 城市空间</span><h2 id="map-title">一座城的山水骨架</h2><span class="map-subtitle" id="map-subtitle">城墙、山水与历史地点</span></div><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="place-search" type="search" aria-label="搜索历史地点" placeholder="寻一处旧地名…" autocomplete="off"><kbd>/</kbd><div id="search-results" class="search-results" hidden></div></div></div>
+      <div class="map-tools"><button id="layers-toggle" class="map-tool" aria-expanded="false"><span aria-hidden="true">▱</span> 图层</button><button id="city-view" class="map-tool" aria-label="回南京城"><span aria-hidden="true">⌖</span><span>回南京城</span></button></div>
+      <div id="layers-panel" class="layers-panel" hidden><strong>地图图层</strong><label><input type="checkbox" data-layer="water" checked>山川水系</label><label><input type="checkbox" data-layer="park" checked>山林绿地</label><label><input type="checkbox" data-layer="wall" checked>城墙参照</label><label><input type="checkbox" data-layer="road" checked>现代路网</label><label><input type="checkbox" data-layer="places" checked>历史地点</label><label><input type="checkbox" data-layer="route" checked>历史路线</label><small>底图为现代参照；非清代测绘。</small></div>
+      <button id="data-status" class="data-status" aria-label="查看底图缺项说明">底图缺项：两湖水面与宁镇区域待补 ↗</button>
+      <div class="map-legend" aria-label="地图图例"><span><i class="legend-dot palace"></i>行宫 / 官署</span><span><i class="legend-dot gate"></i>城门</span><span><i class="legend-line"></i>现存城墙参照</span><span><i class="legend-route"></i>历史路线示意</span></div>
+      <div class="north-mark" aria-hidden="true"><span>北</span><svg width="28" height="42" viewBox="0 0 28 42"><path d="M14 2 24 34 14 27 4 34Z" fill="none" stroke="currentColor"/><path d="M14 2V27L4 34Z" fill="currentColor"/></svg><span>N</span></div>
+      <div class="zoom-controls"><button id="zoom-in" aria-label="放大地图">+</button><button id="zoom-out" aria-label="缩小地图">−</button></div>
+      <div class="map-scale" id="map-scale">2 km</div>
+      <div class="map-attribution"><span>现代地理参照 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors · ODbL</span><span>历史点位与路线见论文出处 · 示意非测绘</span></div>
+      <div class="route-player" id="route-player" hidden><div class="player-top"><span class="eyebrow" id="route-era"></span><button class="plain-button" id="evidence-open">资料出处 <span aria-hidden="true">↗</span></button></div><div class="player-main"><button id="play-route" class="play-button" aria-label="播放路线">▶</button><div class="player-stage"><div id="route-stage" aria-live="polite"></div><p id="stage-description"></p></div><div class="step-controls"><button id="prev-stop" aria-label="上一站">←</button><span id="step-count"></span><button id="next-stop" aria-label="下一站">→</button></div></div><div id="route-stop-list" class="route-stop-list"></div></div>
+      <aside class="evidence-panel" id="evidence-panel" aria-label="论文资料与地点详情" hidden><button id="evidence-close" class="close-button" aria-label="关闭资料">×</button><div id="evidence-content"></div><a id="paper-link" class="paper-link" href="/paper.pdf" target="_blank" rel="noreferrer">打开论文对应页 <span>↗</span></a><p class="paper-note">仅访问本机原文件 · 印刷页码与PDF物理页码不同</p></aside>
+      <div id="notice" class="notice" role="status" hidden></div>
+    </section>
+  </main>
+  <footer class="timeline" aria-label="历史时间轴"><div class="year-block"><span class="eyebrow" id="era-label">乾隆二十二年</span><span id="year-value">1757</span><span class="year-unit">公元</span></div><div class="timeline-main"><div class="timeline-caption"><span id="event-caption">栖霞进入南巡行程</span><span>拖动年份，或选择历史节点</span></div><div class="timeline-nodes" id="timeline-nodes"></div><input id="year-range" type="range" min="1644" max="1784" value="1757" step="1" aria-label="历史年份"><div class="timeline-eras"><span>明清鼎革</span><span>清初城防</span><span>康熙南巡</span><span>乾隆南巡</span></div></div><button id="timeline-info" class="timeline-note" aria-label="查看当前年份事件"><span>据史料而见<br>不逐年虚构城貌</span><span>↗</span></button></footer>
+  <dialog id="about-dialog"><button id="about-close" class="close-button" aria-label="关闭说明">×</button><span class="eyebrow">关于 / 研究方法</span><h2>让论文成为<br>可以行走的地图。</h2><p>金陵时序以杨金杰2022年东南大学硕士学位论文《清前中期南京城市空间复原与研究——以清初战争与康乾南巡为中心》为内容线索。</p><div class="method-columns"><div><b>配准</b><p>空间先有依据。现代底图只提供地理参照，不代替清代地图。</p></div><div><b>落点</b><p>区分遗址、现代重建和区域示意；不确定地点不猜坐标。</p></div><div><b>层叠</b><p>将城门、行宫、战事与南巡，叠加为可查证的空间叙事。</p></div></div><p class="method-boundary">本地首版：历史路线为有序节点间的示意连接，不是精确古道路。现代水岸、路网与绿地不代表清代状态。页面不提供整篇论文下载发布，原文件只在本机读取。交互方法参考「江山时序」，未复用其受限府级边界数据。</p><p class="method-boundary">首版资料缺项：玄武湖与莫愁湖完整水面几何下载受阻，目前绿色区域为现代公园，不是湖岸。宁镇扬州目前只有地点锚点，缺少完整区域底图。相关缺项未用猜测形状补画。</p><a href="./paper.pdf#page=25" target="_blank" rel="noreferrer" class="paper-link">阅读论文复原方法 <span>↗</span></a><a class="reference-link" href="https://github.com/DeanChensj/jiangshan-map" target="_blank" rel="noreferrer">交互参考：江山时序 ↗</a></dialog>
+  <noscript>请启用 JavaScript 以查看交互地图。论文出处参见 <a href="./sources.html">书目与页码</a>。</noscript>
+</body>
+</html>

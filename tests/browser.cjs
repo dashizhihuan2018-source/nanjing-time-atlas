@@ -1,0 +1,92 @@
+const assert=require('node:assert/strict');
+const path=require('node:path');
+let playwright;
+try{playwright=require(process.env.PLAYWRIGHT_PATH||'playwright');}catch{playwright=require(path.join(require('node:os').homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));}
+const {chromium}=playwright;
+const fs=require('node:fs');
+(async()=>{
+  const base=process.env.BASE_URL||'http://127.0.0.1:4173/';
+  const publicMode=process.env.PUBLIC_MODE==='1';
+  const output=path.resolve(process.env.EVIDENCE_DIR||'evidence/local-preview');fs.mkdirSync(output,{recursive:true});
+  const browser=await chromium.launch({channel:'chrome',headless:true});
+  const results=[];const errors=[];
+  try{
+    const context=await browser.newContext({viewport:{width:1512,height:982},reducedMotion:'reduce'});
+    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(base,{waitUntil:'networkidle'});
+    await page.locator('body[data-ready="true"]').waitFor();
+    assert.ok(await page.locator('#map svg .geography-path').count()>10,'real local geography must render');
+    assert.equal(await page.locator('#year-value').textContent(),'1757');
+    await page.screenshot({path:path.join(output,'desktop-overview.png')});results.push('desktop map loads');
+    for(const [name,nodes,segments]of [['弘光之战',4,3],['郑成功北伐',5,3],['康熙初次南巡',3,1],['乾隆初巡 · 龙潭御路',4,2],['乾隆二巡 · 栖霞御路',6,4]]){
+      await page.getByRole('button',{name:'全部',exact:true}).click();
+      await page.getByRole('button',{name,exact:true}).click();
+      assert.ok(await page.locator('.route-node').count()>=nodes,`${name} must have sourced route points`);
+      const count=await page.locator('.route-line').count();
+      if(name==='郑成功北伐')assert.ok(count>=segments);else assert.equal(count,segments,`${name}: do not bridge unknown stops`);
+    }
+    results.push('all five routes draw with gaps at unlocated stops');
+    await page.getByRole('button',{name:'乾隆二巡 · 栖霞御路',exact:true}).click();
+    assert.ok(await page.locator('#route-stage').innerText());
+    await page.getByRole('button',{name:'下一站',exact:true}).click();
+    assert.ok((await page.locator('#route-stage').innerText()).includes('宝华山'));
+    await page.getByRole('button',{name:'播放路线',exact:true}).click();
+    await page.getByRole('button',{name:'暂停路线',exact:true}).waitFor();
+    await page.getByRole('button',{name:'暂停路线',exact:true}).click();results.push('route steps and playback');
+    await page.getByRole('button',{name:'资料出处',exact:true}).click();
+    assert.ok((await page.locator('#evidence-panel').innerText()).includes('论文'));
+    const sourceHref=await page.locator('#paper-link').getAttribute('href');
+    assert.match(sourceHref,publicMode?/sources\.html#\w+/:/paper\.pdf#page=\d+/);
+    if(publicMode){const response=await context.request.get(new URL(sourceHref,page.url()).href);assert.equal(response.status(),200);assert.ok((await response.text()).includes('不托管论文全文'));}
+    await page.getByRole('button',{name:'关闭资料',exact:true}).click();
+    const search=page.getByRole('searchbox');await search.fill('仪凤');
+    await page.locator('#search-results').getByRole('button',{name:/仪凤门.*城西北/}).click();
+    assert.ok((await page.locator('#evidence-panel').innerText()).includes('重建'));results.push('place search and provenance');
+    await page.getByRole('button',{name:'乾隆二巡 · 栖霞御路',exact:true}).click();
+    assert.equal(await page.locator('#evidence-content h2').innerText(),'乾隆二巡 · 栖霞御路');
+    await search.fill('仪凤');
+    await page.locator('#search-results').getByRole('button',{name:/仪凤门.*城西北/}).click();
+    await page.getByRole('button',{name:'第2站 宝华山',exact:true}).click();
+    assert.equal(await page.locator('#evidence-content h2').innerText(),'乾隆二巡 · 栖霞御路');
+    assert.ok((await page.locator('#evidence-content').innerText()).includes('宝华山拈香'));
+    await page.getByRole('button',{name:'清初战争',exact:true}).click();
+    assert.equal(await page.locator('#evidence-content h2').innerText(),'栖霞进入南巡行程');
+    results.push('source drawer follows route selection');
+    await page.getByRole('button',{name:'关闭资料',exact:true}).click();
+    await page.getByRole('button',{name:'1659 郑成功北伐江宁',exact:true}).click();
+    assert.equal(await page.locator('#year-value').textContent(),'1659');
+    const url=page.url();await page.reload({waitUntil:'networkidle'});
+    assert.equal(page.url(),url);assert.equal(await page.locator('#year-value').textContent(),'1659');results.push('timeline and deep-link restore');
+    await page.goto(base+'?year=1757&topic=war&route=qianlong-1757',{waitUntil:'networkidle'});
+    assert.equal(await page.getByRole('button',{name:'康乾南巡',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await page.getByRole('button',{name:'乾隆二巡 · 栖霞御路',exact:true}).getAttribute('aria-pressed'),'true');
+    results.push('conflicting URL topic normalized to its route');
+    await page.getByRole('button',{name:'回南京城',exact:true}).click();
+    const box=page.locator('#map svg');const before=await box.getAttribute('viewBox');
+    await page.getByRole('button',{name:'放大地图',exact:true}).click();
+    assert.notEqual(await box.getAttribute('viewBox'),before);
+    const b=await box.boundingBox();await page.mouse.move(b.x+b.width*.55,b.y+b.height*.45);await page.mouse.down();
+    const zoomed=await box.getAttribute('viewBox');await page.mouse.move(b.x+b.width*.55+80,b.y+b.height*.45+20,{steps:8});await page.mouse.up();
+    assert.notEqual(await box.getAttribute('viewBox'),zoomed);results.push('map zoom and drag');
+    await page.getByRole('button',{name:'图层',exact:true}).click();
+    await page.getByLabel('城墙参照').uncheck();assert.equal(await page.locator('g[data-layer="wall"]').getAttribute('display'),'none');
+    await page.getByLabel('城墙参照').check();await page.getByRole('button',{name:'图层',exact:true}).click();results.push('layer toggles');
+    await page.getByRole('button',{name:'全部',exact:true}).click();
+    await page.getByRole('button',{name:'乾隆二巡 · 栖霞御路',exact:true}).click();
+    await page.screenshot({path:path.join(output,'desktop-tour.png')});
+    await context.setOffline(true);await page.reload({waitUntil:'domcontentloaded'}).catch(()=>{});
+    await context.setOffline(false);await page.goto(base,{waitUntil:'networkidle'});
+    // Block every non-loopback request to prove the app needs no tile/CDN/font services.
+    await page.route('**/*',r=>new URL(r.request().url()).origin===new URL(base).origin?r.continue():r.abort());
+    await page.reload({waitUntil:'networkidle'});assert.ok(await page.locator('.geography-path').count()>10);results.push('no external network dependencies');
+    await page.setViewportSize({width:390,height:844});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.getByRole('button',{name:'打开专题目录',exact:true}).click();
+    await page.getByRole('button',{name:'郑成功北伐',exact:true}).click();
+    await page.getByRole('button',{name:'下一站',exact:true}).click();
+    await page.screenshot({path:path.join(output,'mobile-war.png')});results.push('mobile menu and route');
+    await browser.close();assert.deepEqual(errors,[]);
+    fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({passed:results,errors},null,2));
+    console.log(`PASS ${results.length} browser checks; no page errors; screenshots in ${output}`);
+  }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exit(1)});
