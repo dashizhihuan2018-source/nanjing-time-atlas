@@ -3,6 +3,7 @@ import {createReadStream} from 'node:fs';
 import {stat} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {gisFiles} from './scripts/gis-assets.mjs';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
 try{process.loadEnvFile?.(path.join(root,'.env.local'));}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -10,14 +11,15 @@ const paper=process.env.NANJING_THESIS_PATH||null;
 const assets=new Map([
   ['/','index.html'],['/index.html','index.html'],['/public/style.css','public/style.css'],
   ['/public/favicon.svg','public/favicon.svg'],['/public/data/geography.json','public/data/geography.json'],['/sources.html','sources.html'],
-  ...['app','map','state','history'].map(name=>[`/src/${name}.mjs`,`src/${name}.mjs`]),
+  ...['app','map','state','history','reader','exhibition'].map(name=>[`/src/${name}.mjs`,`src/${name}.mjs`]),
+  ...gisFiles.map(name=>['/'+name,name]),
 ]);
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.pdf':'application/pdf'};
 export function createServer() {
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' https://tiles.openfreemap.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     const host=req.headers.host||'';
     if(!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)){res.writeHead(403);return res.end('Loopback only');}
     if(!['GET','HEAD'].includes(req.method)){res.writeHead(405,{Allow:'GET, HEAD'});return res.end();}

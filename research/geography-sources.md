@@ -93,4 +93,3 @@ node scripts/fetch-geography.mjs --from-raw \
 ```
 
 最终契约校验结果：4,029 features；22 places；43,255 坐标点；所有 feature 都有 `kind/name/osmType/osmId/source`；JSON 可解析；宽范围合理性检查无越界坐标；测试 6/6 通过。
-

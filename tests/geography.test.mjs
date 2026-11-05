@@ -188,4 +188,3 @@ test('multipolygon relations stitch outer and inner member ways into a real poly
   assert.equal(feature.properties.kind, 'water');
   assert.equal(feature.properties.source, 'https://www.openstreetmap.org/relation/3406529');
 });
-

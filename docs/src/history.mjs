@@ -1,4 +1,5 @@
 // Historical evidence is kept separate from modern geographic references.
+import {imperialTours} from './exhibition.mjs';
 export const thesis = {
   title: '清前中期南京城市空间复原与研究',
   subtitle: '以清初战争与康乾南巡为中心',
@@ -15,6 +16,7 @@ export const sources = {
   qianlong: {pages:[55,56,61,62,63,64,65],figures:['图2-16','图2-23','图2-24','图2-25'],title:'乾隆南巡与两条御路',summary:'初巡采用龙潭—朝阳门—江宁行宫；第二至六巡的路线体系增入栖霞，形成经太平门入城的栖霞御路。细部线路不是现代道路导航。'},
   palaces: {pages:[66,67,68],figures:['表2-4'],title:'行宫、行座与名胜',summary:'论文区分驻跸过夜的行宫与通常不过夜的行座；逐项核对地名和建设时序，避免将建筑群和独立行座混计。'},
   qixia: {pages:[95,96,97],figures:[],title:'栖霞的景观重构',summary:'栖霞从山水胜境进入帝王南巡的空间网络。此版先呈现行宫与巡游的关联，不虚构建筑形态。'},
+  tours: {pages:[54,55,56,57,58],figures:['图2-15','图2-16','表2-3'],title:'康乾十二巡驻跸序列',summary:'逐次呈现正文记载的停宿次序与晚数；保留未定位站和舟宿差别，不把夜宿序列冒充逐日道路。图像日程表尚未逐项核读，本站不生成精确逐日日期。'},
 };
 
 const p = (id,name,modern,kind,source,geoNames,description,locationNote) => ({id,name,modern,kind,source,geoNames,description,locationNote});
@@ -103,6 +105,26 @@ export const events = [
   {id:'e1757',year:1757,title:'栖霞进入南巡行程',era:'乾隆二十二年',topic:'tour',source:'qianlong',route:'qianlong-1757',text:'栖霞行宫、宝华山与燕子矶，把城外山水重新组织进帝王的空间网络。'},
   {id:'e1784',year:1784,title:'乾隆第六次南巡',era:'乾隆四十九年',topic:'tour',source:'qianlong',text:'宁镇走廊的驻跸与城郊名胜关系已趋稳定。此版不将1757示意路线冒充1784每日行程。'},
 ];
+
+// Overnight sequences are distinct from the five featured road/war narratives.
+// Each unresolved stop remains a real record with no guessed modern alias.
+for(const tour of imperialTours){
+  const id=`overnight-${tour.id}`;
+  const stops=tour.stops.map((entry,index)=>{
+    const place=entry.placeId||`${id}-unknown-${index}`;
+    if(!entry.placeId)places.push(p(place,entry.name,'论文驻跸记录 · 待定位','landmark','tours',[],
+      `${tour.year}年${tour.title}的驻跸站点。${entry.note||'未落实可复核的位置参照。'}`,
+      entry.note||'未完成历史地点定位，不用现代同名地点或城市中心替代。'));
+    return {...stop(place,`${entry.name}${entry.overnights?` · ${entry.overnights}晚`:''}`,
+      `${tour.summary}${entry.note?' '+entry.note+'。':''} 记载为驻跸顺序，不代表各段准确古道路。`),label:entry.name};
+  });
+  routes.push({id,title:tour.title+' · 驻跸序列',subtitle:'夜宿顺序 / 不等于御路',year:tour.year,
+    era:`${tour.emperor}${tour.year-(tour.emperor==='康熙'?1661:1735)}年`,topic:'tour',source:'tours',featured:false,
+    color:'#c69f69',note:tour.summary+' 未定位站不落点，线段在此断开；晚数按正文，不补未经核图的逐日日期。',stops});
+  if(!events.some(event=>event.year===tour.year))events.push({id:`e${tour.year}`,year:tour.year,
+    title:tour.title+'驻跸',era:routes.at(-1).era,topic:'tour',source:'tours',route:id,minor:true,text:tour.summary});
+}
+events.sort((a,b)=>a.year-b.year);
 
 export function paperURL(source) {
   const page=sources[source]?.pages?.[0];

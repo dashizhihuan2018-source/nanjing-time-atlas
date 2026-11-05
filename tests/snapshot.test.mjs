@@ -27,6 +27,10 @@ test('lake geometry is never faked, and the present missing-data limitation is v
 });
 test('each historical route retains multiple sourced modern geographic references',()=>{
   const resolved=resolvePlaces(places,geography);
-  for(const route of routes)assert.ok(route.stops.filter(stop=>resolved.find(p=>p.id===stop.place)?.geo).length>=3,route.id);
+  for(const route of routes){
+    const count=route.stops.filter(stop=>resolved.find(p=>p.id===stop.place)?.geo).length;
+    if(route.featured!==false)assert.ok(count>=3,route.id);
+    else assert.ok(count>=1,`${route.id} must retain at least its documented palace reference, never invented extra points`);
+  }
   for(const id of ['general','jiashan','ciying','wukesong'])assert.equal(resolved.find(p=>p.id===id).geo,null);
 });

@@ -45,7 +45,7 @@ export class AtlasMap {
     const defs=el('defs');
     const pattern=el('pattern',{id:'map-grid',width:500,height:500,patternUnits:'userSpaceOnUse'});
     pattern.append(el('path',{d:'M 500 0 L 0 0 0 500',fill:'none',stroke:'#98a78c','stroke-width':1,opacity:'.13'}));defs.append(pattern);this.svg.append(defs);
-    this.svg.append(el('rect',{x:-30000,y:-30000,width:60000,height:60000,fill:'#eee9dc'}));
+    this.svg.append(el('rect',{x:-30000,y:-30000,width:60000,height:60000,fill:'#071722'}));
     this.svg.append(el('rect',{x:-30000,y:-30000,width:60000,height:60000,fill:'url(#map-grid)'}));
     for(const kind of ['park','road','water','river','wall']){
       const group=el('g',{'data-layer':kind});this.layers[kind]=group;
@@ -64,7 +64,7 @@ export class AtlasMap {
     this.routeNodes=el('g');this.routeLayer.append(this.routeNodes);
     this.drawPlaces();container.replaceChildren(this.svg);
     this.view={x:-1000,y:-900,w:2400,h:1900};this.city();this.bindInput();
-    this.resize=new ResizeObserver(()=>this.applyView());this.resize.observe(container);
+    this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
   }
   drawPlaces(){
     // Selected/route labels are given priority; colliding optional labels hide at city scale.
@@ -116,9 +116,14 @@ export class AtlasMap {
       this.routeLayer.append(this.routeNodes);
     }
     const activePlace=state.place||route?.stops[state.step]?.place;
+    const activeStop=route?.stops[state.step];
     for(const marker of this.markerNodes){
       marker.g.classList.toggle('selected',marker.place.id===activePlace);
       marker.g.classList.toggle('route-stop',Boolean(route?.stops.some(s=>s.place===marker.place.id)));
+      const label=marker.place.id===activePlace&&activeStop?.place===marker.place.id?activeStop.label||marker.place.name:marker.place.name;
+      marker.label.textContent=label;
+      marker.g.setAttribute('aria-label',`${label}，${marker.place.modern}`);
+      marker.g.querySelector('title').textContent=`${label} · ${marker.place.locationNote}`;
     }
     this.applyView();
   }
@@ -156,7 +161,7 @@ export class AtlasMap {
     for(const marker of order){
       marker.g.setAttribute('transform',`translate(${marker.xy.join(' ')}) scale(${scale})`);
       const px=(marker.xy[0]-this.view.x)/scale,py=(marker.xy[1]-this.view.y)/scale;
-      const box={x:px+8,y:py-10,w:marker.place.name.length*12,h:20};
+      const box={x:px+8,y:py-10,w:marker.label.textContent.length*12,h:20};
       const priority=marker.g.classList.contains('selected')||marker.g.classList.contains('route-stop');
       const collides=boxes.some(b=>box.x<b.x+b.w&&box.x+box.w>b.x&&box.y<b.y+b.h&&box.y+box.h>b.y);
       marker.label.setAttribute('display',!priority&&collides?'none':'inline');
@@ -166,6 +171,7 @@ export class AtlasMap {
     const km=this.view.w/10000*111.32*Math.cos(32.06*rad)*75/r.width;
     const scaleElement=document.getElementById('map-scale');if(scaleElement)scaleElement.textContent=km<1?`${Math.round(km*1000)} m`:`${km.toFixed(1)} km`;
   }
+  resize(){this.applyView();}
   zoom(factor,anchor){
     const r=this.container.getBoundingClientRect();
     const ax=anchor?(anchor[0]-r.left)/r.width:.5,ay=anchor?(anchor[1]-r.top)/r.height:.5;
